@@ -2,13 +2,15 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Navbar from './components/Navbar.jsx';
 import TrackedProductTile from './components/TrackedProductTile.jsx';
 import CatalogRow from './components/CatalogRow.jsx';
-import { Search, Layers, RefreshCw, PackageCheck, ShoppingBag, X } from 'lucide-react';
+import { Search, Layers, RefreshCw, PackageCheck, ShoppingBag, X, ChevronDown } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
   window.location.hostname === 'localhost' 
     ? 'http://localhost:5000/api' 
     : 'https://ine-price-tracker-backend-l2zl.onrender.com/api'
 );
+
+const INITIAL_CATALOG_LIMIT = 50;
 
 export default function App() {
   const [trackedProducts, setTrackedProducts] = useState([]);
@@ -17,6 +19,7 @@ export default function App() {
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleCatalogCount, setVisibleCatalogCount] = useState(INITIAL_CATALOG_LIMIT);
   const [toastMessage, setToastMessage] = useState(null);
   const searchDebounceRef = useRef(null);
 
@@ -32,6 +35,7 @@ export default function App() {
 
     searchDebounceRef.current = setTimeout(() => {
       fetchCatalog(searchQuery);
+      setVisibleCatalogCount(INITIAL_CATALOG_LIMIT); // Reset to 50 on new search
     }, 250);
 
     return () => clearTimeout(searchDebounceRef.current);
@@ -138,7 +142,7 @@ export default function App() {
     ));
   }, [trackedProducts, searchQuery]);
 
-  // Filter Catalog Products in real-time across all 600+ items
+  // Filter Catalog Products in real-time across all items
   const filteredCatalog = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return catalogProducts;
@@ -151,6 +155,12 @@ export default function App() {
     ));
   }, [catalogProducts, searchQuery]);
 
+  // Visible slice of catalog (initial 50 + load more in batches of 50)
+  const visibleCatalog = useMemo(() => {
+    return filteredCatalog.slice(0, visibleCatalogCount);
+  }, [filteredCatalog, visibleCatalogCount]);
+
+  const hasMoreCatalog = visibleCatalogCount < filteredCatalog.length;
   const trackedIds = new Set(trackedProducts.map(p => String(p.store_product_id)));
 
   return (
@@ -269,18 +279,18 @@ export default function App() {
         </div>
 
         {/* ========================================================= */}
-        {/* SECTION 2: ALL PRODUCTS STORE (ROW-WISE LIST OF ALL ITEMS) */}
+        {/* SECTION 2: ALL PRODUCTS STORE (ROW-WISE LIST OF 50 + LOAD MORE) */}
         {/* ========================================================= */}
         <section style={{ marginTop: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ShoppingBag size={20} />
               <h2 style={{ fontSize: '1.6rem', color: 'var(--text-main)' }}>
-                All Store Products ({filteredCatalog.length})
+                All Store Products ({visibleCatalog.length}{filteredCatalog.length > visibleCatalog.length ? ` of ${filteredCatalog.length}` : ''})
               </h2>
             </div>
             <span style={{ fontSize: '0.75rem', color: 'rgba(31,31,31,0.5)' }}>
-              Complete Mock Storefront Catalog ({filteredCatalog.length} Products)
+              Complete Mock Storefront Catalog ({filteredCatalog.length} Total Products)
             </span>
           </div>
 
@@ -288,7 +298,7 @@ export default function App() {
           {loadingCatalog && catalogProducts.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(31,31,31,0.5)' }}>
               <RefreshCw size={22} className="spin-anim" style={{ margin: '0 auto 10px' }} />
-              <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem' }}>Scraping full store catalog...</p>
+              <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem' }}>Loading store catalog...</p>
             </div>
           ) : filteredCatalog.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '50px 20px', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
@@ -298,7 +308,7 @@ export default function App() {
             </div>
           ) : (
             <div>
-              {filteredCatalog.map(product => (
+              {visibleCatalog.map(product => (
                 <CatalogRow
                   key={product.id}
                   product={product}
@@ -307,6 +317,27 @@ export default function App() {
                   apiBaseUrl={API_BASE_URL}
                 />
               ))}
+
+              {/* Load More Button */}
+              {hasMoreCatalog && (
+                <div style={{ textAlign: 'center', marginTop: '28px', marginBottom: '20px' }}>
+                  <button
+                    onClick={() => setVisibleCatalogCount(prev => prev + 50)}
+                    className="btn-minimal btn-solid"
+                    style={{
+                      padding: '11px 28px',
+                      fontSize: '0.82rem',
+                      letterSpacing: '0.03em',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span>Load Next 50 Products ({filteredCatalog.length - visibleCatalogCount} remaining)</span>
+                    <ChevronDown size={15} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>
