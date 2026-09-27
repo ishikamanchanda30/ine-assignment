@@ -1,31 +1,28 @@
 import React, { useState } from 'react';
-import { TrendingDown, TrendingUp, Calendar, AlertTriangle } from 'lucide-react';
 
 export default function PriceChart({ history = [], productName, optionLabel }) {
   const [activeTab, setActiveTab] = useState('price'); // 'price' or 'stock'
 
-  // Reverse to show chronologically left-to-right
   const chronological = [...history].reverse();
   const validData = chronological.filter(h => h.outcome !== 'failed' && (activeTab === 'price' ? h.price !== null : h.stock !== null));
 
-  if (chronological.length === 0) {
+  if (validData.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-        <p>No historical scrape points recorded yet.</p>
+      <div style={{ textAlign: 'center', padding: '16px 8px', fontSize: '0.75rem', color: 'rgba(31,31,31,0.5)' }}>
+        No scrape history yet for this variant. Click "Scrape Price" to record the first point.
       </div>
     );
   }
 
   const values = validData.map(d => activeTab === 'price' ? d.price : d.stock);
-  const minVal = values.length > 0 ? Math.min(...values) : 0;
-  const maxVal = values.length > 0 ? Math.max(...values) : 100;
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
   const range = maxVal - minVal || 1;
 
-  const width = 600;
-  const height = 200;
-  const padding = 30;
+  const width = 280;
+  const height = 90;
+  const padding = 12;
 
-  // Build SVG Path
   const points = validData.map((d, i) => {
     const x = padding + (i / Math.max(1, validData.length - 1)) * (width - padding * 2);
     const val = activeTab === 'price' ? d.price : d.stock;
@@ -37,137 +34,76 @@ export default function PriceChart({ history = [], productName, optionLabel }) {
     ? `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')
     : '';
 
-  const areaD = points.length > 0
-    ? `${pathD} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`
-    : '';
-
-  const latestVal = values[values.length - 1];
-  const initialVal = values[0];
-  const diff = latestVal && initialVal ? latestVal - initialVal : 0;
-
   return (
-    <div style={{ marginTop: '16px' }}>
-      {/* Chart Controls & Stats */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '16px',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {activeTab === 'price' ? 'Current Price' : 'Current Stock'}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h4 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#fff' }}>
-                {activeTab === 'price' ? `₹${latestVal?.toLocaleString() || '—'}` : `${latestVal || 0} units`}
-              </h4>
-              {diff !== 0 && activeTab === 'price' && (
-                <span style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  color: diff < 0 ? '#34d399' : '#fb7185',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '2px'
-                }}>
-                  {diff < 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
-                  ₹{Math.abs(diff)}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Tab Toggle */}
-        <div style={{
-          display: 'flex',
-          background: 'rgba(255, 255, 255, 0.05)',
-          padding: '3px',
-          borderRadius: 'var(--radius-sm)'
-        }}>
+    <div style={{ marginTop: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+        <span style={{ fontSize: '0.7rem', color: 'rgba(31,31,31,0.6)', textTransform: 'uppercase' }}>
+          {activeTab === 'price' ? 'Price Trend' : 'Stock Trend'}
+        </span>
+        <div style={{ display: 'flex', gap: '4px' }}>
           <button
             onClick={() => setActiveTab('price')}
-            className={`btn ${activeTab === 'price' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              fontSize: '0.68rem',
+              cursor: 'pointer',
+              fontWeight: activeTab === 'price' ? 700 : 400,
+              textDecoration: activeTab === 'price' ? 'underline' : 'none',
+              color: 'var(--text-main)'
+            }}
           >
-            Price Trend
+            Price
           </button>
+          <span style={{ fontSize: '0.68rem', color: 'rgba(31,31,31,0.3)' }}>/</span>
           <button
             onClick={() => setActiveTab('stock')}
-            className={`btn ${activeTab === 'stock' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              fontSize: '0.68rem',
+              cursor: 'pointer',
+              fontWeight: activeTab === 'stock' ? 700 : 400,
+              textDecoration: activeTab === 'stock' ? 'underline' : 'none',
+              color: 'var(--text-main)'
+            }}
           >
-            Stock Level
+            Stock
           </button>
         </div>
       </div>
 
-      {/* SVG Interactive Chart */}
-      <div style={{
-        background: 'rgba(5, 8, 15, 0.5)',
-        borderRadius: 'var(--radius-md)',
-        padding: '12px',
-        border: '1px solid var(--border-glass)'
-      }}>
+      {/* SVG Minimal Line Chart */}
+      <div style={{ background: 'rgba(31,31,31,0.03)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '6px' }}>
         <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-          <defs>
-            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.4" />
-              <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-
-          {/* Grid lines */}
-          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(255,255,255,0.05)" strokeDasharray="4" />
-          <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="rgba(255,255,255,0.05)" strokeDasharray="4" />
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="rgba(255,255,255,0.1)" />
-
-          {/* Gradient Fill */}
-          {areaD && <path d={areaD} fill="url(#chartGradient)" />}
-
-          {/* Stroke Line */}
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="rgba(31,31,31,0.15)" />
           {pathD && (
             <path
               d={pathD}
               fill="none"
-              stroke={activeTab === 'price' ? 'var(--accent-primary)' : 'var(--accent-cyan)'}
-              strokeWidth="2.5"
+              stroke="#1f1f1f"
+              strokeWidth="1.75"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           )}
-
-          {/* Data Points */}
           {points.map((p, i) => (
-            <g key={i}>
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r="4.5"
-                fill="var(--bg-primary)"
-                stroke={activeTab === 'price' ? 'var(--accent-primary)' : 'var(--accent-cyan)'}
-                strokeWidth="2"
-              />
-            </g>
+            <circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r="3"
+              fill="#ffffff"
+              stroke="#1f1f1f"
+              strokeWidth="1.5"
+            />
           ))}
         </svg>
 
-        {/* X-Axis Time Bounds */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: '0.7rem',
-          color: 'var(--text-muted)',
-          marginTop: '6px',
-          padding: '0 8px'
-        }}>
-          <span>{new Date(chronological[0]?.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          <span>{chronological.length} recorded run(s)</span>
-          <span>{new Date(chronological[chronological.length - 1]?.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'rgba(31,31,31,0.5)', marginTop: '4px' }}>
+          <span>Low: {activeTab === 'price' ? `₹${minVal}` : `${minVal}u`}</span>
+          <span>{validData.length} pts</span>
+          <span>High: {activeTab === 'price' ? `₹${maxVal}` : `${maxVal}u`}</span>
         </div>
       </div>
     </div>

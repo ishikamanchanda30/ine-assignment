@@ -1,82 +1,55 @@
 import React from 'react';
-import { Activity, Search, Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, ExternalLink } from 'lucide-react';
 
-export default function Navbar({ onOpenSearch, onRefresh, onExport, isRefreshing }) {
+export default function Navbar({ onRefresh, onExport, isRefreshing, totalProducts }) {
   return (
     <header style={{
-      borderBottom: '1px solid var(--border-glass)',
-      background: 'rgba(10, 13, 20, 0.8)',
-      backdropFilter: 'blur(16px)',
+      borderBottom: '1px solid var(--border-color)',
+      background: 'var(--bg-main)',
       position: 'sticky',
       top: 0,
-      zIndex: 40,
-      padding: '16px 24px'
+      zIndex: 30,
+      padding: '20px 0'
     }}>
-      <div style={{
-        maxWidth: '1280px',
-        margin: '0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        {/* Logo & Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-cyan))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            boxShadow: '0 4px 12px var(--accent-glow)'
-          }}>
-            <Activity size={22} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff' }}>PricePulse</h1>
-              <span className="badge badge-success" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                <span className="pulse-dot" style={{ background: '#10b981' }}></span> Live Scraper
-              </span>
-            </div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              INE Mock Storefront • 2-Hour Resilient Polling Engine
-            </p>
-          </div>
+      <div className="container" style={{ padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        {/* Brand */}
+        <div>
+          <h1 style={{ fontSize: '2rem', letterSpacing: '0.04em', lineHeight: 1, color: 'var(--text-main)' }}>
+            PRICE PULSE
+          </h1>
+          <p style={{ fontSize: '0.78rem', color: 'rgba(31,31,31,0.6)', marginTop: '4px', letterSpacing: '0.02em' }}>
+            Resilient Web Scraper & Product Price Intelligence
+          </p>
         </div>
 
-        {/* Action Controls */}
+        {/* Minimal Action Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            onClick={onOpenSearch}
-            className="btn btn-primary"
-            id="open-search-btn"
+          <a
+            href="https://demo.inelabteamdev.com"
+            target="_blank"
+            rel="noreferrer"
+            className="btn-minimal btn-outline"
           >
-            <Search size={16} />
-            <span>Track New Product</span>
-          </button>
+            <span>Mock Store</span>
+            <ExternalLink size={12} />
+          </a>
 
           <button
             onClick={onRefresh}
-            className="btn btn-secondary"
             disabled={isRefreshing}
-            title="Refresh dashboard data"
+            className="btn-minimal btn-outline"
+            title="Refresh product list and prices"
           >
-            <RefreshCw size={16} className={isRefreshing ? 'spin-anim' : ''} />
+            <RefreshCw size={13} className={isRefreshing ? 'spin-anim' : ''} />
             <span>Refresh</span>
           </button>
 
           <button
             onClick={onExport}
-            className="btn btn-secondary"
-            id="export-csv-btn"
-            title="Download full scrape history as CSV"
+            className="btn-minimal btn-solid"
+            title="Download full scrape history CSV"
           >
-            <Download size={16} />
+            <Download size={13} />
             <span>Export CSV</span>
           </button>
         </div>
