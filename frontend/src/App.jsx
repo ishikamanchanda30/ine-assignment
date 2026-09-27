@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar.jsx';
 import TrackedProductTile from './components/TrackedProductTile.jsx';
+import CatalogRow from './components/CatalogRow.jsx';
 import SearchModal from './components/SearchModal.jsx';
-import { Search, Plus, Layers, RefreshCw } from 'lucide-react';
+import { Search, Plus, Layers, RefreshCw, PackageCheck, ShoppingBag } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
   window.location.hostname === 'localhost' 
@@ -11,15 +12,18 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
 );
 
 export default function App() {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [trackedProducts, setTrackedProducts] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [loadingTracked, setLoadingTracked] = useState(true);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
-    loadTrackedProducts();
+    loadAllData();
   }, []);
 
   function showToast(message) {
@@ -27,18 +31,34 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3500);
   }
 
-  async function loadTrackedProducts() {
+  async function loadAllData() {
     setRefreshing(true);
+    await Promise.all([loadTrackedProducts(), loadCatalog()]);
+    setRefreshing(false);
+  }
+
+  async function loadTrackedProducts() {
     try {
       const res = await fetch(`${API_BASE_URL}/tracked`);
       const data = await res.json();
-      setProducts(data || []);
+      setTrackedProducts(data || []);
     } catch (err) {
       console.error('Failed to load tracked products:', err);
       showToast('Could not load tracked products from backend API.');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoadingTracked(false);
+    }
+  }
+
+  async function loadCatalog() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/products/search?limit=100`);
+      const data = await res.json();
+      setCatalogProducts(data.results || []);
+    } catch (err) {
+      console.error('Failed to load catalog:', err);
+    } finally {
+      setLoadingCatalog(false);
     }
   }
 
@@ -91,16 +111,31 @@ export default function App() {
     showToast('Downloading complete scrape history CSV');
   }
 
-  // Filter tracked products by search query
-  const filteredProducts = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return products;
-    return products.filter(p => (
-      p.product_name?.toLowerCase().includes(q) ||
-      p.selected_option_label?.toLowerCase().includes(q) ||
-      p.store_product_id?.toLowerCase().includes(q)
-    ));
-  }, [products, searchQuery]);
+  // Extract catalog categories
+  const categories = useMemo(() => {
+    const cats = new Set(['All']);
+    catalogProducts.forEach(p => {
+      if (p.category) cats.add(p.category);
+    });
+    return Array.from(cats);
+  }, [catalogProducts]);
+
+  // Filter catalog products by search query and category
+  const filteredCatalog = useMemo(() => {
+    return catalogProducts.filter(p => {
+      const matchCategory = selectedCategory === 'All' || p.category === selectedCategory;
+      const q = searchQuery.toLowerCase().trim();
+      const matchQuery = !q || (
+        p.name?.toLowerCase().includes(q) ||
+        p.brand?.toLowerCase().includes(q) ||
+        p.sku?.toLowerCase().includes(q) ||
+        p.category?.toLowerCase().includes(q)
+      );
+      return matchCategory && matchQuery;
+    });
+  }, [catalogProducts, searchQuery, selectedCategory]);
+
+  const trackedIds = new Set(trackedProducts.map(p => String(p.store_product_id)));
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -126,82 +161,132 @@ export default function App() {
       {/* Header */}
       <Navbar
         onOpenSearch={() => setIsSearchModalOpen(true)}
-        onRefresh={loadTrackedProducts}
+        onRefresh={loadAllData}
         onExport={handleExportCsv}
         isRefreshing={refreshing}
-        totalTracked={products.length}
+        totalTracked={trackedProducts.length}
       />
 
-      {/* Main Grid View */}
+      {/* Main Content Area */}
       <main className="container" style={{ flex: 1 }}>
-        {/* Search Bar & Stats */}
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap' }}>
-          <div className="search-wrapper" style={{ flex: 1, minWidth: '260px' }}>
-            <Search className="search-icon" size={16} />
-            <input
-              type="text"
-              placeholder="Filter tracked products by name, variant, store ID..."
-              className="search-input"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+        {/* ========================================================= */}
+        {/* SECTION 1: TRACKED PRODUCTS (3 PER ROW GRID) */}
+        {/* ========================================================= */}
+        <section style={{ marginBottom: '48px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <PackageCheck size={20} />
+              <h2 style={{ fontSize: '1.6rem', color: 'var(--text-main)' }}>
+                Tracked Products ({trackedProducts.length})
+              </h2>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'rgba(31,31,31,0.5)' }}>
+              Scheduled Scrapes Every 2h • Supabase Storage
+            </span>
           </div>
 
-          <button
-            onClick={() => setIsSearchModalOpen(true)}
-            className="btn-minimal btn-solid"
-            style={{ padding: '16px 20px', whiteSpace: 'nowrap' }}
-          >
-            <Plus size={15} />
-            <span>Search & Track Store Product</span>
-          </button>
-        </div>
+          {loadingTracked ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(31,31,31,0.5)' }}>
+              <RefreshCw size={22} className="spin-anim" style={{ margin: '0 auto 10px' }} />
+              <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem' }}>Loading tracked products...</p>
+            </div>
+          ) : trackedProducts.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '50px 20px', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+              <Layers size={32} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+              <h4 style={{ fontSize: '1.3rem', color: 'var(--text-main)', marginBottom: '4px' }}>No Tracked Products Yet</h4>
+              <p style={{ fontSize: '0.85rem', color: 'rgba(31,31,31,0.6)', marginBottom: '16px' }}>
+                Browse the catalog below and click "Track This Product" to begin automated monitoring.
+              </p>
+            </div>
+          ) : (
+            <div className="product-grid">
+              {trackedProducts.map(product => (
+                <TrackedProductTile
+                  key={product.id}
+                  product={product}
+                  onScrapeNow={handleScrapeNow}
+                  onRemove={handleRemoveProduct}
+                  apiBaseUrl={API_BASE_URL}
+                  onToast={showToast}
+                />
+              ))}
+            </div>
+          )}
+        </section>
 
-        {/* Section Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-          <span style={{ fontSize: '0.82rem', color: 'rgba(31,31,31,0.6)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Tracked Products ({filteredProducts.length})
-          </span>
-          <span style={{ fontSize: '0.75rem', color: 'rgba(31,31,31,0.5)' }}>
-            Scheduled Scraping Every 2 Hours • Monitored via Supabase
-          </span>
-        </div>
+        {/* ========================================================= */}
+        {/* SECTION 2: ALL PRODUCTS CATALOG (ROW-WISE LIST) */}
+        {/* ========================================================= */}
+        <section style={{ marginTop: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShoppingBag size={20} />
+              <h2 style={{ fontSize: '1.6rem', color: 'var(--text-main)' }}>
+                All Store Products ({filteredCatalog.length})
+              </h2>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'rgba(31,31,31,0.5)' }}>
+              INE Mock Storefront Catalog
+            </span>
+          </div>
 
-        {/* 3-Column Product Grid */}
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(31,31,31,0.5)' }}>
-            <RefreshCw size={24} className="spin-anim" style={{ margin: '0 auto 12px' }} />
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem' }}>Loading tracked products...</p>
-          </div>
-        ) : products.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(31,31,31,0.5)' }}>
-            <Layers size={36} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-            <h4 style={{ fontSize: '1.4rem', color: 'var(--text-main)', marginBottom: '6px' }}>No Tracked Products Yet</h4>
-            <p style={{ fontSize: '0.85rem', marginBottom: '20px' }}>
-              Search the INE mock store to select a product and option to monitor.
-            </p>
-            <button onClick={() => setIsSearchModalOpen(true)} className="btn-minimal btn-solid">
-              <Plus size={15} />
-              <span>Track First Product</span>
-            </button>
-          </div>
-        ) : (
-          <div className="product-grid">
-            {filteredProducts.map(product => (
-              <TrackedProductTile
-                key={product.id}
-                product={product}
-                onScrapeNow={handleScrapeNow}
-                onRemove={handleRemoveProduct}
-                apiBaseUrl={API_BASE_URL}
-                onToast={showToast}
+          {/* Search Bar & Category Filters for Catalog */}
+          <div style={{ marginBottom: '20px' }}>
+            <div className="search-wrapper">
+              <Search className="search-icon" size={16} />
+              <input
+                type="text"
+                placeholder="Search catalog by name, brand, SKU or category..."
+                className="search-input"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
               />
-            ))}
+            </div>
+
+            {/* Category Filter Pills */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '12px' }}>
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`variant-chip ${selectedCategory === cat ? 'active' : ''}`}
+                  style={{ fontSize: '0.75rem', padding: '5px 12px' }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
+
+          {/* Row-wise Catalog List */}
+          {loadingCatalog ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(31,31,31,0.5)' }}>
+              <RefreshCw size={22} className="spin-anim" style={{ margin: '0 auto 10px' }} />
+              <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem' }}>Loading store catalog...</p>
+            </div>
+          ) : filteredCatalog.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '50px 20px', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+              <p style={{ fontSize: '0.9rem', color: 'rgba(31,31,31,0.6)' }}>
+                No products found matching "{searchQuery}"
+              </p>
+            </div>
+          ) : (
+            <div>
+              {filteredCatalog.map(product => (
+                <CatalogRow
+                  key={product.id}
+                  product={product}
+                  isTracked={trackedIds.has(String(product.id))}
+                  onTrack={handleTrackProduct}
+                  apiBaseUrl={API_BASE_URL}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       </main>
 
-      {/* Catalog Search & Variant Selection Modal */}
+      {/* Search Modal */}
       <SearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
@@ -211,7 +296,7 @@ export default function App() {
 
       {/* Minimal Footer */}
       <footer style={{ borderTop: '1px solid var(--border-color)', padding: '24px', textAlign: 'center', fontSize: '0.78rem', color: 'rgba(31,31,31,0.5)' }}>
-        <p>INE Software Engineer Intern Assignment • Product Price Tracker</p>
+        <p>INE Software Engineer Intern Assignment • Product Price Tracker (Web Scraping)</p>
       </footer>
     </div>
   );

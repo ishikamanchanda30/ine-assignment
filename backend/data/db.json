@@ -37,6 +37,36 @@
   ],
   "scrape_history": [
     {
+      "id": "ca27fb8b-0d32-4c31-8582-e40551daa170",
+      "tracked_product_id": "dc35805a-9e2b-4323-b3d0-e03d3c5a72ac",
+      "store_product_id": "2541",
+      "product_name": "Halvard Massager Ultra",
+      "selected_option": "Duo pack",
+      "timestamp": "2026-09-27T17:13:12.163Z",
+      "price": 6097,
+      "stock": 5,
+      "outcome": "success",
+      "retry_count": 0,
+      "error_message": null,
+      "duration_ms": 133,
+      "created_at": "2026-09-27T17:13:12.163Z"
+    },
+    {
+      "id": "dadd6b77-a152-4985-b1e3-c686d0526814",
+      "tracked_product_id": "5d07fe75-6ce9-497d-84ed-20b28eb705fb",
+      "store_product_id": "2714",
+      "product_name": "Saffrix Mesh System Duo",
+      "selected_option": "2-pack",
+      "timestamp": "2026-09-27T17:07:55.396Z",
+      "price": 2588,
+      "stock": 14,
+      "outcome": "success",
+      "retry_count": 0,
+      "error_message": null,
+      "duration_ms": 105,
+      "created_at": "2026-09-27T17:07:55.396Z"
+    },
+    {
       "id": "6077ec4b-2c70-41d8-a6e5-b0abad0c1d1f",
       "tracked_product_id": "5feb2a3c-5df9-4a15-88c1-5fadee876ab7",
       "store_product_id": "2021",
