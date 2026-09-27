@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Plus, Check, Loader2, ExternalLink } from 'lucide-react';
 
 export default function CatalogRow({ product, isTracked, onTrack, apiBaseUrl }) {
@@ -6,37 +6,57 @@ export default function CatalogRow({ product, isTracked, onTrack, apiBaseUrl }) 
   const [selectedOptionId, setSelectedOptionId] = useState('');
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [tracking, setTracking] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    async function loadDetails() {
-      setLoadingDetails(true);
-      try {
-        const res = await fetch(`${apiBaseUrl}/products/${product.id}`);
-        const data = await res.json();
-        setProductDetails(data);
-        if (data.options && data.options.length > 0) {
-          setSelectedOptionId(data.options[0].id);
-        }
-      } catch (err) {
-        console.warn('Failed to fetch details for row', product.id);
-      } finally {
-        setLoadingDetails(false);
+  // Lazy load product variant options only when user hovers or focuses the selector
+  async function ensureDetailsLoaded() {
+    if (loaded || loadingDetails) return;
+    setLoadingDetails(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/products/${product.id}`);
+      const data = await res.json();
+      setProductDetails(data);
+      if (data.options && data.options.length > 0) {
+        setSelectedOptionId(data.options[0].id);
       }
+      setLoaded(true);
+    } catch (err) {
+      console.warn('Failed to load item options for', product.id);
+    } finally {
+      setLoadingDetails(false);
     }
-    loadDetails();
-  }, [product.id, apiBaseUrl]);
+  }
 
   async function handleTrack() {
-    if (!selectedOptionId) return;
-    const opt = (productDetails?.options || []).find(o => o.id === selectedOptionId);
     setTracking(true);
     try {
+      let optId = selectedOptionId;
+      let optLabel = 'Default';
+      let optAxis = 'Option';
+
+      if (!loaded) {
+        // Fetch details if not yet fetched
+        try {
+          const res = await fetch(`${apiBaseUrl}/products/${product.id}`);
+          const data = await res.json();
+          if (data.options && data.options.length > 0) {
+            optId = data.options[0].id;
+            optLabel = data.options[0].label;
+            optAxis = data.optionAxis || 'Option';
+          }
+        } catch (e) {}
+      } else if (productDetails) {
+        const opt = (productDetails.options || []).find(o => o.id === selectedOptionId);
+        optLabel = opt ? opt.label : 'Default';
+        optAxis = productDetails.optionAxis || 'Option';
+      }
+
       await onTrack({
         store_product_id: String(product.id),
         product_name: product.name,
-        selected_option_id: selectedOptionId,
-        selected_option_label: opt ? opt.label : 'Default',
-        option_axis: productDetails?.optionAxis || 'Option',
+        selected_option_id: optId || 'o1',
+        selected_option_label: optLabel,
+        option_axis: optAxis,
         product_url: `https://demo.inelabteamdev.com/item/${product.id}`
       });
     } catch (err) {
@@ -49,21 +69,23 @@ export default function CatalogRow({ product, isTracked, onTrack, apiBaseUrl }) 
   const options = productDetails?.options || [];
 
   return (
-    <div style={{
-      background: '#ffffff',
-      border: '1px solid var(--border-color)',
-      borderRadius: 'var(--radius-md)',
-      padding: '16px 20px',
-      marginBottom: '12px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      flexWrap: 'wrap',
-      gap: '16px',
-      transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
-    }}
-    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-dark)'}
-    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+    <div
+      style={{
+        background: '#ffffff',
+        border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-md)',
+        padding: '16px 20px',
+        marginBottom: '12px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
+        transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+      }}
+      onMouseEnter={() => {
+        ensureDetailsLoaded();
+      }}
     >
       {/* Product Information */}
       <div style={{ flex: '1 1 340px' }}>
@@ -93,13 +115,22 @@ export default function CatalogRow({ product, isTracked, onTrack, apiBaseUrl }) 
         </div>
       </div>
 
-      {/* Variant Selector Dropdown */}
+      {/* Variant Selector Dropdown (Lazy Loaded) */}
       <div style={{ width: '220px', minWidth: '180px' }}>
         <label style={{ display: 'block', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'rgba(31,31,31,0.6)', marginBottom: '4px' }}>
           {productDetails?.optionAxis || 'Variant'}:
         </label>
         {loadingDetails ? (
-          <div style={{ fontSize: '0.78rem', color: 'rgba(31,31,31,0.4)' }}>Loading options...</div>
+          <div style={{ fontSize: '0.78rem', color: 'rgba(31,31,31,0.4)', padding: '6px 0' }}>Loading options...</div>
+        ) : !loaded ? (
+          <select
+            onFocus={ensureDetailsLoaded}
+            onMouseEnter={ensureDetailsLoaded}
+            className="variant-select"
+            style={{ padding: '8px 12px', fontSize: '0.8rem' }}
+          >
+            <option>Hover / Click to select variant...</option>
+          </select>
         ) : (
           <select
             value={selectedOptionId}

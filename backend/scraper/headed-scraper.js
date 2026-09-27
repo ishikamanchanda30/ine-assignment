@@ -19,7 +19,7 @@ export async function runHeadedScrape(storeProductId = '2428', optionIndex = 0) 
 
   const browser = await chromium.launch({
     headless: false,
-    slowMo: 400 // Slow down operations so visual recording clearly shows every step
+    slowMo: 300 // Slow down operations so visual recording clearly shows every step
   });
 
   const context = await browser.newContext({
@@ -31,11 +31,21 @@ export async function runHeadedScrape(storeProductId = '2428', optionIndex = 0) 
   try {
     console.log(`[Step 1] Navigating to target storefront: ${STORE_BASE_URL}`);
     await page.goto(STORE_BASE_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await wait(1500);
+    await wait(1200);
+
+    // Dismiss any consent scrim / cookie banner
+    await page.evaluate(() => {
+      document.querySelectorAll('.consent-scrim, .consent-modal, .cookie-banner').forEach(el => el.remove());
+    });
 
     console.log(`[Step 2] Opening product detail page for item ${storeProductId}...`);
     await page.goto(`${STORE_BASE_URL}/item/${storeProductId}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await wait(2000);
+    await wait(1500);
+
+    // Dismiss consent banner if popped up on product page
+    await page.evaluate(() => {
+      document.querySelectorAll('.consent-scrim, .consent-modal, .cookie-banner').forEach(el => el.remove());
+    });
 
     // Get product title
     const titleElem = await page.$('h1, h2, .item-title, .title');
@@ -44,7 +54,7 @@ export async function runHeadedScrape(storeProductId = '2428', optionIndex = 0) 
 
     // Find option buttons
     console.log(`[Step 4] Detecting option selectors on page...`);
-    const optionChips = await page.$$('button.opt-chip, button[class*="opt-"]');
+    const optionChips = await page.$$('button.opt-chip');
     console.log(`[Step 4] Found ${optionChips.length} option selector(s).`);
 
     let selectedOptionLabel = 'Default';
@@ -52,26 +62,52 @@ export async function runHeadedScrape(storeProductId = '2428', optionIndex = 0) 
       const targetOption = optionChips[Math.min(optionIndex, optionChips.length - 1)];
       selectedOptionLabel = (await targetOption.innerText()).trim();
       console.log(`[Step 5] Clicking option chip: "${selectedOptionLabel}"`);
-      await targetOption.click();
-      await wait(1500);
+      await targetOption.click({ force: true });
+      await wait(1000);
     }
 
-    // Check price unlock interaction
-    console.log(`[Step 6] Locating price container & checking for asynchronous hydration...`);
-    const priceBtn = await page.$('button:has-text("Check"), button:has-text("price"), .price-box');
-    if (priceBtn) {
-      console.log(`[Step 6] Interacting with price trigger button...`);
-      await priceBtn.hover();
-      await priceBtn.click();
-      await wait(2000);
+    // Locate price offer panel
+    console.log(`[Step 6] Locating price container & performing mouse dwell unlock...`);
+    const offerPanel = await page.waitForSelector('.offer-panel', { timeout: 8000 });
+    const box = await offerPanel.boundingBox();
+
+    if (box) {
+      // Smoothly move mouse into offer panel
+      await page.mouse.move(box.x + 20, box.y + 20);
+      await wait(100);
+
+      // Perform distinct human-like movements across the offer panel
+      for (let i = 0; i < 14; i++) {
+        const x = box.x + 25 + ((i * 35) % Math.max(60, box.width - 50));
+        const y = box.y + 20 + ((i * 15) % Math.max(40, box.height - 40));
+        await page.mouse.move(x, y);
+        await wait(70);
+      }
+      console.log(`[Step 7] Dwell requirement met (800ms).`);
+      await wait(800);
+    }
+
+    // Dismiss scrim again just before clicking
+    await page.evaluate(() => {
+      document.querySelectorAll('.consent-scrim, .consent-modal, .cookie-banner').forEach(el => el.remove());
+    });
+
+    // Click "Check today's price" button
+    const checkBtn = await page.$('button.ctl-main');
+    if (checkBtn) {
+      console.log(`[Step 8] Clicking "Check today’s price" button...`);
+      await checkBtn.click({ force: true });
+      await wait(3000);
     }
 
     // Read price and stock text
-    const pageText = await page.innerText('body');
-    const priceMatch = pageText.match(/₹\s?([\d,]+)|\$\s?([\d,]+)/);
-    const stockMatch = pageText.match(/(\d+)\s*(in stock|units left|left in stock)/i);
+    const panelText = await page.$eval('.offer-panel', el => el.innerText).catch(() => '');
+    const cleanText = panelText.replace(/[\u200B-\u200D\uFEFF]/g, '');
+    const priceMatches = cleanText.match(/₹\s?([\d,]+)|\$\s?([\d,]+)/g) || [];
+    const nums = priceMatches.map(m => parseInt(m.replace(/[^\d]/g, ''), 10));
+    const extractedPrice = nums.length > 1 ? nums[1] : (nums[0] || 1299);
 
-    const extractedPrice = priceMatch ? parseInt(priceMatch[1] || priceMatch[2], 10) : 1299;
+    const stockMatch = cleanText.match(/STOCK:\s*(\d+)/i) || cleanText.match(/(\d+)\s*(remaining|in stock|units)/i);
     const extractedStock = stockMatch ? parseInt(stockMatch[1], 10) : 24;
 
     console.log(`\n======================================================`);

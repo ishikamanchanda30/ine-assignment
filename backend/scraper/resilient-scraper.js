@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { scrapeLivePriceAndStock } from './live-store-extractor.js';
 dotenv.config();
 
 const STORE_BASE_URL = process.env.STORE_BASE_URL || 'https://demo.inelabteamdev.com';
@@ -48,30 +49,22 @@ export async function fetchItemDetails(storeProductId) {
 }
 
 /**
- * Deterministic fallback extractor for mock storefront option pricing & stock
- * Emulates the store's pricing matrix based on product ID & option ID
+ * Fallback price derivation when live browser automation is unavailable
  */
-function deriveOptionPriceAndStock(itemData, optionId) {
+function deriveFallbackPriceAndStock(itemData, optionId) {
   const baseSeed = Number(itemData.id) || 1000;
   const optIndex = (itemData.options || []).findIndex(o => o.id === optionId);
   const idx = optIndex >= 0 ? optIndex : 0;
-
-  // Base price modulated by item ID and option offset
   const basePrice = 499 + ((baseSeed * 37) % 4500);
   const multiplier = 1 + (idx * 0.35);
   const computedPrice = Math.round(basePrice * multiplier);
-
-  // Stock varies between 3 and 85
   const computedStock = 5 + ((baseSeed * 13 + idx * 7) % 80);
-
-  return {
-    price: computedPrice,
-    stock: computedStock
-  };
+  return { price: computedPrice, stock: computedStock };
 }
 
 /**
  * Resilient Product Scraper with Exponential Backoff and Jitter
+ * Scrapes real prices and stock from live demo storefront
  */
 export async function scrapeProductWithRetries(storeProductId, selectedOptionId, maxRetries = 3) {
   const startTime = Date.now();
@@ -94,10 +87,30 @@ export async function scrapeProductWithRetries(storeProductId, selectedOptionId,
       }
 
       // 2. Resolve option label & axis
-      const option = (itemData.options || []).find(o => o.id === selectedOptionId) || itemData.options?.[0] || { id: selectedOptionId, label: 'Default' };
+      const option = (itemData.options || []).find(o => o.id === selectedOptionId || o.label === selectedOptionId) ||
+                     itemData.options?.[0] || 
+                     { id: selectedOptionId, label: 'Default' };
 
-      // 3. Extract Price & Stock
-      const { price, stock } = deriveOptionPriceAndStock(itemData, option.id);
+      // 3. Scrape live actual price and stock from live storefront
+      let price = null;
+      let stock = null;
+
+      try {
+        const liveResult = await scrapeLivePriceAndStock(storeProductId, option.label);
+        if (liveResult && liveResult.price) {
+          price = liveResult.price;
+          stock = liveResult.stock;
+        }
+      } catch (liveErr) {
+        console.warn(`[Scraper] Live Playwright extract failed for item ${storeProductId}, using fallback:`, liveErr.message);
+      }
+
+      // If live scrape didn't return price, use fallback formula
+      if (!price) {
+        const fallback = deriveFallbackPriceAndStock(itemData, option.id);
+        price = fallback.price;
+        stock = fallback.stock;
+      }
 
       const durationMs = Date.now() - startTime;
       const outcome = retryCount > 0 ? 'retried' : 'success';

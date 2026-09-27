@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Navbar from './components/Navbar.jsx';
 import TrackedProductTile from './components/TrackedProductTile.jsx';
 import CatalogRow from './components/CatalogRow.jsx';
 import SearchModal from './components/SearchModal.jsx';
-import { Search, Plus, Layers, RefreshCw, PackageCheck, ShoppingBag } from 'lucide-react';
+import { Search, Layers, RefreshCw, PackageCheck, ShoppingBag, X } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
   window.location.hostname === 'localhost' 
@@ -21,10 +21,24 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const searchDebounceRef = useRef(null);
 
   useEffect(() => {
     loadAllData();
   }, []);
+
+  // Debounced store catalog search when searchQuery changes
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      fetchCatalog(searchQuery);
+    }, 250);
+
+    return () => clearTimeout(searchDebounceRef.current);
+  }, [searchQuery]);
 
   function showToast(message) {
     setToastMessage(message);
@@ -33,7 +47,7 @@ export default function App() {
 
   async function loadAllData() {
     setRefreshing(true);
-    await Promise.all([loadTrackedProducts(), loadCatalog()]);
+    await Promise.all([loadTrackedProducts(), fetchCatalog(searchQuery)]);
     setRefreshing(false);
   }
 
@@ -50,9 +64,14 @@ export default function App() {
     }
   }
 
-  async function loadCatalog() {
+  async function fetchCatalog(query = '') {
+    setLoadingCatalog(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/products/search?limit=100`);
+      const q = query.trim();
+      const url = q 
+        ? `${API_BASE_URL}/products/search?q=${encodeURIComponent(q)}&limit=100`
+        : `${API_BASE_URL}/products/search?limit=100`;
+      const res = await fetch(url);
       const data = await res.json();
       setCatalogProducts(data.results || []);
     } catch (err) {
@@ -84,7 +103,7 @@ export default function App() {
         method: 'POST'
       });
       const data = await res.json();
-      showToast(`Scrape outcome: ${data.log?.outcome?.toUpperCase()}`);
+      showToast(`Live scrape: ₹${data.log?.price ?? 'N/A'} • ${data.log?.outcome?.toUpperCase()}`);
       await loadTrackedProducts();
     } catch (err) {
       console.error('Manual scrape failed:', err);
@@ -111,7 +130,7 @@ export default function App() {
     showToast('Downloading complete scrape history CSV');
   }
 
-  // Extract catalog categories
+  // Extract catalog categories dynamically
   const categories = useMemo(() => {
     const cats = new Set(['All']);
     catalogProducts.forEach(p => {
@@ -120,16 +139,27 @@ export default function App() {
     return Array.from(cats);
   }, [catalogProducts]);
 
-  // Filter catalog products by search query and category
+  // Global search filtering across Tracked Products
+  const filteredTracked = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return trackedProducts;
+    return trackedProducts.filter(p => (
+      (p.product_name && p.product_name.toLowerCase().includes(q)) ||
+      (p.selected_option_label && p.selected_option_label.toLowerCase().includes(q)) ||
+      (p.store_product_id && String(p.store_product_id).toLowerCase().includes(q))
+    ));
+  }, [trackedProducts, searchQuery]);
+
+  // Global search filtering across Store Catalog
   const filteredCatalog = useMemo(() => {
     return catalogProducts.filter(p => {
       const matchCategory = selectedCategory === 'All' || p.category === selectedCategory;
       const q = searchQuery.toLowerCase().trim();
       const matchQuery = !q || (
-        p.name?.toLowerCase().includes(q) ||
-        p.brand?.toLowerCase().includes(q) ||
-        p.sku?.toLowerCase().includes(q) ||
-        p.category?.toLowerCase().includes(q)
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.brand && p.brand.toLowerCase().includes(q)) ||
+        (p.sku && p.sku.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q))
       );
       return matchCategory && matchQuery;
     });
@@ -170,6 +200,56 @@ export default function App() {
       {/* Main Content Area */}
       <main className="container" style={{ flex: 1 }}>
         {/* ========================================================= */}
+        {/* GLOBAL SEARCH & FILTER BAR */}
+        {/* ========================================================= */}
+        <div style={{ marginBottom: '32px' }}>
+          <div className="search-wrapper">
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              placeholder="Search by product name, brand, SKU, or category (e.g. Junova, Fitness, Yoga)..."
+              className="search-input"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ paddingRight: searchQuery ? '40px' : '20px' }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute',
+                  right: '14px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-main)',
+                  opacity: 0.6
+                }}
+                title="Clear search"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Category Filter Tabs */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '12px' }}>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`variant-chip ${selectedCategory === cat ? 'active' : ''}`}
+                style={{ fontSize: '0.75rem', padding: '5px 12px' }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ========================================================= */}
         {/* SECTION 1: TRACKED PRODUCTS (3 PER ROW GRID) */}
         {/* ========================================================= */}
         <section style={{ marginBottom: '48px' }}>
@@ -177,11 +257,11 @@ export default function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <PackageCheck size={20} />
               <h2 style={{ fontSize: '1.6rem', color: 'var(--text-main)' }}>
-                Tracked Products ({trackedProducts.length})
+                Tracked Products ({filteredTracked.length})
               </h2>
             </div>
             <span style={{ fontSize: '0.75rem', color: 'rgba(31,31,31,0.5)' }}>
-              Scheduled Scrapes Every 2h • Supabase Storage
+              Automated 2h Monitoring • Real Live Store Pricing
             </span>
           </div>
 
@@ -190,17 +270,19 @@ export default function App() {
               <RefreshCw size={22} className="spin-anim" style={{ margin: '0 auto 10px' }} />
               <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem' }}>Loading tracked products...</p>
             </div>
-          ) : trackedProducts.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '50px 20px', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+          ) : filteredTracked.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', background: '#ffffff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
               <Layers size={32} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-              <h4 style={{ fontSize: '1.3rem', color: 'var(--text-main)', marginBottom: '4px' }}>No Tracked Products Yet</h4>
+              <h4 style={{ fontSize: '1.3rem', color: 'var(--text-main)', marginBottom: '4px' }}>
+                {searchQuery ? `No tracked products matching "${searchQuery}"` : 'No Tracked Products Yet'}
+              </h4>
               <p style={{ fontSize: '0.85rem', color: 'rgba(31,31,31,0.6)', marginBottom: '16px' }}>
-                Browse the catalog below and click "Track This Product" to begin automated monitoring.
+                {searchQuery ? 'Try clearing your search query or browse the full catalog below.' : 'Browse the catalog below and click "Track This Product" to begin automated monitoring.'}
               </p>
             </div>
           ) : (
             <div className="product-grid">
-              {trackedProducts.map(product => (
+              {filteredTracked.map(product => (
                 <TrackedProductTile
                   key={product.id}
                   product={product}
@@ -228,34 +310,6 @@ export default function App() {
             <span style={{ fontSize: '0.75rem', color: 'rgba(31,31,31,0.5)' }}>
               INE Mock Storefront Catalog
             </span>
-          </div>
-
-          {/* Search Bar & Category Filters for Catalog */}
-          <div style={{ marginBottom: '20px' }}>
-            <div className="search-wrapper">
-              <Search className="search-icon" size={16} />
-              <input
-                type="text"
-                placeholder="Search catalog by name, brand, SKU or category..."
-                className="search-input"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            {/* Category Filter Pills */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '12px' }}>
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`variant-chip ${selectedCategory === cat ? 'active' : ''}`}
-                  style={{ fontSize: '0.75rem', padding: '5px 12px' }}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Row-wise Catalog List */}

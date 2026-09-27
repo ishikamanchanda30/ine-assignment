@@ -37,6 +37,21 @@
   ],
   "scrape_history": [
     {
+      "id": "143dc809-04a2-495a-8536-530b03e7c4dc",
+      "tracked_product_id": "dc35805a-9e2b-4323-b3d0-e03d3c5a72ac",
+      "store_product_id": "2541",
+      "product_name": "Halvard Massager Ultra",
+      "selected_option": "Duo pack",
+      "timestamp": "2026-09-27T17:55:26.193Z",
+      "price": 24678,
+      "stock": 148,
+      "outcome": "success",
+      "retry_count": 0,
+      "error_message": null,
+      "duration_ms": 7450,
+      "created_at": "2026-09-27T17:55:26.193Z"
+    },
+    {
       "id": "ca27fb8b-0d32-4c31-8582-e40551daa170",
       "tracked_product_id": "dc35805a-9e2b-4323-b3d0-e03d3c5a72ac",
       "store_product_id": "2541",
