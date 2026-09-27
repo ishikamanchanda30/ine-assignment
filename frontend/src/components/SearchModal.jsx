@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Plus, Check, Loader2, Package } from 'lucide-react';
+import { X, Search, Plus, Loader2, Package } from 'lucide-react';
 
 export default function SearchModal({ isOpen, onClose, onTrackProduct, apiBaseUrl }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,7 +24,7 @@ export default function SearchModal({ isOpen, onClose, onTrackProduct, apiBaseUr
   async function fetchCatalog(query) {
     setLoading(true);
     try {
-      const res = await fetch(`${apiBaseUrl}/products/search?q=${encodeURIComponent(query)}&limit=24`);
+      const res = await fetch(`${apiBaseUrl}/products/search?q=${encodeURIComponent(query)}&limit=30`);
       const data = await res.json();
       setResults(data.results || []);
     } catch (err) {
@@ -76,67 +76,63 @@ export default function SearchModal({ isOpen, onClose, onTrackProduct, apiBaseUr
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(31, 31, 31, 0.6)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 60,
+      padding: '20px'
+    }} onClick={onClose}>
       <div
-        className="glass-panel"
         style={{
           width: '100%',
-          maxWidth: '680px',
-          maxHeight: '90vh',
+          maxWidth: '640px',
+          maxHeight: '85vh',
+          background: '#ffffff',
+          border: '1px solid var(--border-dark)',
+          borderRadius: 'var(--radius-md)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          background: 'rgba(15, 20, 32, 0.95)',
-          border: '1px solid rgba(255, 255, 255, 0.12)'
+          boxShadow: '0 12px 40px rgba(0,0,0,0.2)'
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div style={{
           padding: '20px 24px',
-          borderBottom: '1px solid var(--border-glass)',
+          borderBottom: '1px solid var(--border-color)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
           <div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff' }}>Search & Track Store Item</h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Select a product and choose the specific option to monitor
+            <h3 style={{ fontSize: '1.5rem', color: 'var(--text-main)' }}>Track New Store Product</h3>
+            <p style={{ fontSize: '0.78rem', color: 'rgba(31,31,31,0.6)' }}>
+              Search INE Mock Store and choose variant option to monitor
             </p>
           </div>
-          <button onClick={onClose} className="btn btn-ghost" style={{ padding: '6px' }}>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-main)' }}>
             <X size={20} />
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-glass)' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid var(--border-glass)',
-            borderRadius: 'var(--radius-md)',
-            padding: '10px 14px'
-          }}>
-            <Search size={18} color="var(--text-muted)" />
+        {/* Search Input */}
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)' }}>
+          <div className="search-wrapper">
+            <Search className="search-icon" size={16} />
             <input
               type="text"
-              placeholder="Search by name, brand, SKU (e.g. Junova, Camera, Fitness)..."
+              placeholder="Search by product name, brand, SKU..."
+              className="search-input"
               value={searchTerm}
               onChange={e => {
                 setSearchTerm(e.target.value);
                 fetchCatalog(e.target.value);
-              }}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#fff',
-                width: '100%',
-                outline: 'none',
-                fontSize: '0.9rem'
               }}
               autoFocus
             />
@@ -150,101 +146,104 @@ export default function SearchModal({ isOpen, onClose, onTrackProduct, apiBaseUr
             <div>
               <button
                 onClick={() => { setSelectedProduct(null); setProductDetails(null); }}
-                className="btn btn-ghost"
-                style={{ padding: '4px 8px', fontSize: '0.8rem', marginBottom: '16px' }}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  marginBottom: '16px',
+                  color: 'var(--text-main)'
+                }}
               >
                 ← Back to search results
               </button>
 
               <div style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid var(--border-glass)',
-                borderRadius: 'var(--radius-md)',
-                padding: '18px',
+                background: 'var(--bg-main)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '16px',
                 marginBottom: '20px'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span className="badge badge-success">{productDetails.category || 'Store Item'}</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SKU: {productDetails.sku}</span>
+                <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(31,31,31,0.6)', marginBottom: '4px' }}>
+                  {productDetails.brand} • {productDetails.category} • SKU: {productDetails.sku}
                 </div>
-                <h4 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>{productDetails.name}</h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                  {productDetails.description || 'INE Store catalog item'}
-                </p>
+                <h4 style={{ fontSize: '1.35rem', color: 'var(--text-main)' }}>{productDetails.name}</h4>
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                  Select {productDetails.optionAxis || 'Option'} to Track:
+              {/* Variant Dropdown */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                  Select {productDetails.optionAxis || 'Variant'} to Track:
                 </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                <select
+                  value={selectedOptionId}
+                  onChange={e => setSelectedOptionId(e.target.value)}
+                  className="variant-select"
+                >
                   {(productDetails.options || []).map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setSelectedOptionId(opt.id)}
-                      className={`btn ${selectedOptionId === opt.id ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ padding: '8px 16px', fontSize: '0.85rem' }}
-                    >
-                      {selectedOptionId === opt.id && <Check size={14} />}
-                      <span>{opt.label}</span>
-                    </button>
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
 
               <button
                 onClick={handleConfirmTrack}
                 disabled={tracking}
-                className="btn btn-primary"
+                className="btn-minimal btn-solid"
                 style={{ width: '100%', padding: '12px' }}
               >
-                {tracking ? <Loader2 size={18} className="spin-anim" /> : <Plus size={18} />}
-                <span>{tracking ? 'Adding & Running Initial Scrape...' : 'Start Tracking This Option'}</span>
+                {tracking ? <Loader2 size={15} className="spin-anim" /> : <Plus size={15} />}
+                <span>{tracking ? 'Adding & Running Initial Scrape...' : 'Add to Tracked Products'}</span>
               </button>
             </div>
           ) : (
-            /* Search Results Grid */
+            /* Results List */
             <div>
               {loading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  <Loader2 size={28} className="spin-anim" style={{ margin: '0 auto 12px' }} />
-                  <p>Searching store catalog...</p>
+                <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(31,31,31,0.5)' }}>
+                  <Loader2 size={22} className="spin-anim" style={{ margin: '0 auto 8px' }} />
+                  <p style={{ fontSize: '0.85rem' }}>Searching catalog...</p>
                 </div>
               ) : results.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  <Package size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-                  <p>No products found matching "{searchTerm}"</p>
+                <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(31,31,31,0.5)' }}>
+                  <Package size={28} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                  <p style={{ fontSize: '0.85rem' }}>No products matching "{searchTerm}"</p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
                   {results.map(item => (
                     <div
                       key={item.id}
                       onClick={() => handleSelectProduct(item)}
-                      className="glass-panel"
                       style={{
-                        padding: '14px',
+                        padding: '12px 16px',
+                        background: 'var(--bg-main)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 'var(--radius-sm)',
                         cursor: 'pointer',
                         display: 'flex',
-                        flexDirection: 'column',
+                        alignItems: 'center',
                         justifyContent: 'space-between',
-                        gap: '8px'
+                        transition: 'border-color 0.15s ease'
                       }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-dark)'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
                     >
                       <div>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
-                          {item.brand || 'Brand'} • {item.category}
-                        </span>
-                        <h5 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#fff', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'rgba(31,31,31,0.6)', textTransform: 'uppercase' }}>
+                          {item.brand} • {item.category}
+                        </div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-main)', marginTop: '2px' }}>
                           {item.name}
-                        </h5>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {item.id}</span>
-                        <span className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>
-                          Select →
-                        </span>
-                      </div>
+                      <span className="btn-minimal btn-outline" style={{ padding: '4px 10px', fontSize: '0.72rem' }}>
+                        Select →
+                      </span>
                     </div>
                   ))}
                 </div>
