@@ -147,26 +147,26 @@ export default function ProductTile({ product, apiBaseUrl, onToast }) {
           SKU: {product.sku || `SK-${product.id}`}
         </p>
 
-        {/* Variant / Option Selector */}
-        <div style={{ marginTop: '18px', marginBottom: '16px' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px', color: 'rgba(31,31,31,0.7)' }}>
-            {productDetails?.optionAxis || 'Variant'}:
-          </div>
+        {/* Variant / Option Dropdown Menu */}
+        <div style={{ marginTop: '14px', marginBottom: '14px' }}>
+          <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', color: 'rgba(31,31,31,0.7)' }}>
+            {productDetails?.optionAxis || 'Select Variant'}:
+          </label>
 
           {loadingDetails ? (
-            <div style={{ fontSize: '0.75rem', color: 'rgba(31,31,31,0.5)' }}>Loading options...</div>
+            <div style={{ fontSize: '0.78rem', color: 'rgba(31,31,31,0.5)' }}>Loading variants...</div>
           ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <select
+              value={selectedOptionId || ''}
+              onChange={e => setSelectedOptionId(e.target.value)}
+              className="variant-select"
+            >
               {options.map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => setSelectedOptionId(opt.id)}
-                  className={`variant-chip ${selectedOptionId === opt.id ? 'active' : ''}`}
-                >
+                <option key={opt.id} value={opt.id}>
                   {opt.label}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           )}
         </div>
       </div>
