@@ -14,28 +14,100 @@ function calculateJitteredBackoff(attempt, baseDelay = 1000) {
   return Math.max(500, Math.floor(exponential + jitter));
 }
 
-export async function fetchStoreCatalog(query = '', page = 1, limit = 50) {
-  const url = `${STORE_BASE_URL}/api/v2/listings?page=${page}&limit=${limit}`;
-  const response = await fetch(url, { headers: { 'User-Agent': 'PriceTrackerBot/1.0' } });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch store catalog: HTTP ${response.status}`);
+// In-memory catalog cache for fast sub-millisecond search across all 600+ store items
+let cachedCatalog = null;
+let lastCatalogFetchTime = 0;
+const CATALOG_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+export async function getFullStoreCatalog(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedCatalog && (now - lastCatalogFetchTime < CATALOG_CACHE_TTL)) {
+    return cachedCatalog;
   }
-  const data = await response.json();
-  let results = data.results || [];
+
+  try {
+    // 1. Fetch page 1 to discover total pages
+    const firstRes = await fetch(`${STORE_BASE_URL}/api/v2/listings?page=1&limit=100`, {
+      headers: { 'User-Agent': 'PriceTrackerBot/1.0' }
+    });
+    if (!firstRes.ok) {
+      throw new Error(`Failed to fetch catalog page 1: HTTP ${firstRes.status}`);
+    }
+    const firstData = await firstRes.json();
+    const totalPages = firstData.totalPages || 10;
+    const allListings = [...(firstData.results || [])];
+
+    // 2. Fetch remaining pages in parallel batches
+    const pagePromises = [];
+    for (let p = 2; p <= totalPages; p++) {
+      pagePromises.push(
+        fetch(`${STORE_BASE_URL}/api/v2/listings?page=${p}&limit=100`, {
+          headers: { 'User-Agent': 'PriceTrackerBot/1.0' }
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => d?.results || [])
+          .catch(err => {
+            console.warn(`[Catalog] Error fetching page ${p}:`, err.message);
+            return [];
+          })
+      );
+    }
+
+    const otherPages = await Promise.all(pagePromises);
+    otherPages.forEach(items => allListings.push(...items));
+
+    // 3. Deduplicate unique products by ID
+    const seenIds = new Set();
+    const uniqueProducts = [];
+    for (const item of allListings) {
+      if (item && item.id && !seenIds.has(String(item.id))) {
+        seenIds.add(String(item.id));
+        uniqueProducts.push(item);
+      }
+    }
+
+    // Sort by ID ascending
+    uniqueProducts.sort((a, b) => Number(a.id) - Number(b.id));
+
+    cachedCatalog = uniqueProducts;
+    lastCatalogFetchTime = now;
+    console.log(`[Catalog] Cached ${uniqueProducts.length} unique products from mock store.`);
+    return cachedCatalog;
+  } catch (err) {
+    console.error('[Catalog] Full catalog scrape error:', err.message);
+    if (cachedCatalog) return cachedCatalog;
+    throw err;
+  }
+}
+
+export async function fetchStoreCatalog(query = '', page = 1, limit = 1000) {
+  const catalog = await getFullStoreCatalog();
+  let results = catalog;
+
   if (query && query.trim()) {
     const q = query.toLowerCase().trim();
     results = results.filter(item =>
       (item.name && item.name.toLowerCase().includes(q)) ||
       (item.brand && item.brand.toLowerCase().includes(q)) ||
       (item.category && item.category.toLowerCase().includes(q)) ||
-      (item.sku && item.sku.toLowerCase().includes(q))
+      (item.sku && item.sku.toLowerCase().includes(q)) ||
+      (item.id && String(item.id).includes(q))
     );
   }
+
+  const total = results.length;
+  const numLimit = parseInt(limit, 10) || 1000;
+  const numPage = parseInt(page, 10) || 1;
+  const totalPages = Math.ceil(total / numLimit) || 1;
+
+  const startIndex = (numPage - 1) * numLimit;
+  const paginatedResults = results.slice(startIndex, startIndex + numLimit);
+
   return {
-    total: data.count || results.length,
-    page: data.page || page,
-    totalPages: data.totalPages || 1,
-    results
+    total,
+    page: numPage,
+    totalPages,
+    results: paginatedResults
   };
 }
 
