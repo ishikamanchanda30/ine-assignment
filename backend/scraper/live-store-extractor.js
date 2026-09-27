@@ -1,19 +1,43 @@
-import { chromium } from 'playwright';
+let chromium = null;
+
+async function getChromium() {
+  if (chromium) return chromium;
+  try {
+    const pw = await import('playwright');
+    chromium = pw.chromium;
+    return chromium;
+  } catch (err) {
+    console.warn('[Extractor] Playwright browser not available in this environment.');
+    return null;
+  }
+}
 
 let sharedBrowser = null;
 
 async function getBrowser() {
+  const cr = await getChromium();
+  if (!cr) return null;
+  
   if (!sharedBrowser || !sharedBrowser.isConnected()) {
-    sharedBrowser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-    });
+    try {
+      sharedBrowser = await cr.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      });
+    } catch (e) {
+      console.warn('[Extractor] Failed to launch Chromium browser:', e.message);
+      return null;
+    }
   }
   return sharedBrowser;
 }
 
 export async function scrapeLivePriceAndStock(storeProductId, selectedOptionLabel = null) {
   const browser = await getBrowser();
+  if (!browser) {
+    return null;
+  }
+
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 }
   });
@@ -78,7 +102,6 @@ export async function scrapeLivePriceAndStock(storeProductId, selectedOptionLabe
     let price = null;
     if (priceMatches.length > 0) {
       const nums = priceMatches.map(m => parseInt(m.replace(/[^\d]/g, ''), 10));
-      // In the unlocked panel, MRP is first (₹35,960), Sale price is second (₹27,689)
       price = nums.length > 1 ? nums[1] : nums[0];
     }
 
