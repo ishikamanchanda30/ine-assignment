@@ -12,7 +12,7 @@ Live Deployments
 
 
 
-## 📁 Repository Structure
+Repository Structure
 
 ```plaintext
 ine-assignment/
@@ -57,38 +57,8 @@ ine-assignment/
 ├── .editorconfig
 ├── .gitignore
 └── README.md
-```
-
 ---
 
-## ⚙️ Environment Variables
-
-### Backend (`backend/.env`)
-
-```env
-PORT=5000
-NODE_ENV=production
-FRONTEND_URL=*
-STORE_BASE_URL=https://demo.inelabteamdev.com
-
-# Supabase PostgreSQL
-SUPABASE_URL=https://wxafjjulwqzkrihcagkd.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=sb_publishable_oX5axFkCaqQl7HgHplxINA_0GSs29Oi
-SUPABASE_ANON_KEY=sb_publishable_oX5axFkCaqQl7HgHplxINA_0GSs29Oi
-
-# Cron Webhook Authentication
-CRON_SECRET=cron_sec_ine_2026
-```
-
-### Frontend (`frontend/.env` & Vercel)
-
-```env
-VITE_API_BASE_URL=https://ine-price-tracker-backend-l2zl.onrender.com/api
-```
-
----
-
-## 💻 Local Development Setup
 
 ### 1. Clone the Repository
 ```bash
@@ -124,26 +94,4 @@ npm run scrape:headed -- 2428 0
 ```
 *This launches Chromium in visible GUI mode, navigates to item 2428, clicks options, triggers price unlocking, and logs all steps.*
 
----
 
-## ⏰ Scraping Schedule & Sleeping Backend Mitigation
-
-- **Schedule**: Every 2 hours (`0 */2 * * *`)
-- **Trigger**: Configured on [cron-job.org](https://cron-job.org) targeting `POST /api/cron/scrape` with header `x-cron-secret: cron_sec_ine_2026`.
-- **Warm-Up Ping**: Scheduled every 10 minutes against `GET /health` to keep Render warm and avoid cold-start timeouts.
-
----
-
-## 📊 CSV Export Format
-
-Clicking **Export CSV** downloads a standardized RFC 4180 file:
-- **Columns**: `store_product_id,product_name,selected_option,timestamp,price,stock,outcome`
-- **ISO 8601 UTC Timestamps**: e.g., `2026-09-27T14:00:00.000Z`
-- **Honest Failures**: Failed scrape attempts are recorded with `price` and `stock` left completely blank.
-
----
-
-## 📄 Documentation Deliverables
-
-- Detailed Specifications: [`document/SPECIFICATION.md`](./document/SPECIFICATION.md)
-- Design Note & AI Disclosures: [`document/DESIGN_NOTE.md`](./document/DESIGN_NOTE.md)
