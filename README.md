@@ -4,7 +4,7 @@ A full-stack web application that allows users to search products on the INE Moc
 
 Live Deployments
 
-- **Frontend (Vercel)**: [https://ine-price-tracker.vercel.app](https://ine-price-tracker.vercel.app) *(or your Vercel deployment URL)*
+- **Frontend (Vercel)**: [https://ine-price-tracker.vercel.app](https://ine-price-tracker.vercel.app) 
 - **Backend API (Render)**: [https://ine-price-tracker-backend-l2zl.onrender.com](https://ine-price-tracker-backend-l2zl.onrender.com)
 - **Database**: Supabase (PostgreSQL)
 - **Target Mock Store**: [https://demo.inelabteamdev.com](https://demo.inelabteamdev.com)
